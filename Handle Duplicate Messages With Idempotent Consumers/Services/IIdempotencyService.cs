@@ -16,16 +16,7 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
             string messageId,
             string consumerName)
         {
-            // Check if message is in dead-letter queue
-            var deadLetterRecord = await context.DeadLetterMessages
-                .FirstOrDefaultAsync(x => x.OriginalMessageId == messageId && x.Status == DeadLetterStatus.Pending);
-
-            if (deadLetterRecord != null)
-            {
-                logger.LogWarning("Message {MessageId} found in dead-letter queue", messageId);
-                return true; // Treat as already processed to prevent retry loops
-            }
-
+            // Only check the main idempotency records - dead-letter queue is for failed processing, not duplicates
             var record = await context.IdempotencyRecords
                 .FirstOrDefaultAsync(x => x.MessageId == messageId && x.ConsumerName == consumerName);
 
@@ -35,9 +26,20 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
         public async Task<ProcessResult> ProcessWithDeadLetterQueueAsync(
             string messageId,
             string consumerName,
-            Func<Task<ProcessResult>> processFunc)
+            Func<Task<ProcessResult>> processFunc,
+            OrderMessage? orderMessage = null)
         {
-            // Check if already processed (standard idempotency)
+            // First, check if message is already in dead-letter queue (prevents processing failed messages repeatedly)
+            var deadLetterRecord = await context.DeadLetterMessages
+                .FirstOrDefaultAsync(x => x.OriginalMessageId == messageId && x.Status == DeadLetterStatus.Pending);
+
+            if (deadLetterRecord != null)
+            {
+                logger.LogWarning("Message {MessageId} is already in dead-letter queue, skipping processing", messageId);
+                return ProcessResult.Fail($"Message {messageId} is in dead-letter queue and requires manual intervention");
+            }
+
+            // Check if already processed (standard idempotency check)
             if (await CheckIfMessageAlreadyProcessedAsync(messageId, consumerName))
             {
                 var existingResult = await GetProcessingResultAsync(messageId, consumerName);
@@ -52,7 +54,7 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
             if (currentAttempt > MaxProcessingAttempts)
             {
                 logger.LogWarning("Message {MessageId} exceeded max processing attempts, sending to dead-letter queue", messageId);
-                await SendToDeadLetterQueueAsync(messageId, consumerName, currentAttempt, "Max processing attempts exceeded");
+                await SendToDeadLetterQueueAsync(messageId, consumerName, currentAttempt, "Max processing attempts exceeded", orderMessage);
                 return ProcessResult.Fail("Message exceeded max processing attempts");
             }
 
@@ -76,7 +78,7 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
 
                     if (currentAttempt >= MaxProcessingAttempts)
                     {
-                        await SendToDeadLetterQueueAsync(messageId, consumerName, currentAttempt, result.Error);
+                        await SendToDeadLetterQueueAsync(messageId, consumerName, currentAttempt, result.Error, orderMessage);
                         _processingAttempts.Remove(attemptKey);
                     }
                 }
@@ -89,7 +91,7 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
 
                 if (currentAttempt >= MaxProcessingAttempts)
                 {
-                    await SendToDeadLetterQueueAsync(messageId, consumerName, currentAttempt, ex.Message);
+                    await SendToDeadLetterQueueAsync(messageId, consumerName, currentAttempt, ex.Message, orderMessage);
                     _processingAttempts.Remove(attemptKey);
                     return ProcessResult.Fail($"Message processing failed after {currentAttempt} attempts: {ex.Message}");
                 }
@@ -133,7 +135,8 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
             string messageId,
             string consumerName,
             int attemptNumber,
-            string failureReason)
+            string failureReason,
+            OrderMessage? orderMessage = null)
         {
             try
             {
@@ -142,6 +145,9 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
                     Id = Guid.NewGuid(),
                     OriginalMessageId = messageId,
                     ConsumerName = consumerName,
+                    CustomerName = orderMessage?.CustomerName ?? "Unknown",
+                    Amount = orderMessage?.Amount ?? 0,
+                    OriginalTimestamp = orderMessage?.Timestamp ?? DateTime.UtcNow,
                     AttemptNumber = attemptNumber,
                     FailureReason = failureReason,
                     FailureTimestamp = DateTime.UtcNow,

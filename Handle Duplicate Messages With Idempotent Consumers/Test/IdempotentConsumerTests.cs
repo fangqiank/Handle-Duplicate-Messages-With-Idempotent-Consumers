@@ -123,9 +123,9 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Test
 
             var result = await _consumerService.ProcessMessageAsync(orderMessage);
 
-            // Should succeed but indicate it was already processed
-            Assert.True(result.Success);
-            Assert.Contains("already processed", result.Message);
+            // Should fail because message is in dead-letter queue
+            Assert.False(result.Success);
+            Assert.Contains("dead-letter queue", result.Error);
         }
 
         [Fact]

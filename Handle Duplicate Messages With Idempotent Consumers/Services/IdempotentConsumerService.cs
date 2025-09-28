@@ -39,7 +39,8 @@ namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
                     }
 
                     return result;
-                });
+                },
+                message); // Pass the order message for dead-letter queue context
         }
 
         private Guid? ExtractOrderIdFromResult(string? result)
