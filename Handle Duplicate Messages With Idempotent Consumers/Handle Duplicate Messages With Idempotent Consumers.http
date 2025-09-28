@@ -1,0 +1,6 @@
+@Handle_Duplicate_Messages_With_Idempotent_Consumers_HostAddress = http://localhost:5272
+
+GET {{Handle_Duplicate_Messages_With_Idempotent_Consumers_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
