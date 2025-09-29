@@ -3,7 +3,7 @@
 namespace Handle_Duplicate_Messages_With_Idempotent_Consumers.Services
 {
     public class IdempotentConsumerService(
-        IIdempotencyService idempotencyService,
+        IIdempotencyServiceInterface idempotencyService,
         IOrderMessageProcessor messageProcessor,
         ILogger<IdempotentConsumerService> logger
         )

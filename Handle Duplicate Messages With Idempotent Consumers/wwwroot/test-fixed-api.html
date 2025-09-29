@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API测试页面</title>
+</head>
+<body>
+    <h1>API测试页面</h1>
+    <div id="stats"></div>
+    <div id="debug"></div>
+
+    <script>
+        async function testAPI() {
+            try {
+                console.log('开始测试API...');
+                const response = await fetch('/api/dead-letter-queue');
+                console.log('响应状态:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('API返回数据:', data);
+
+                const stats = data.stats;
+                console.log('统计数据:', stats);
+
+                // 显示结果
+                document.getElementById('stats').innerHTML = `
+                    <h2>统计数据:</h2>
+                    <p>总处理消息: ${stats.totalProcessedMessages || 0}</p>
+                    <p>成功订单: ${stats.successfulOrders || 0}</p>
+                    <p>重复消息: ${stats.duplicateMessagesDetected || 0}</p>
+                    <p>死信消息: ${stats.deadLetterMessages || 0}</p>
+                `;
+
+                document.getElementById('debug').innerHTML = `
+                    <h2>调试信息:</h2>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+
+            } catch (error) {
+                console.error('API测试失败:', error);
+                document.getElementById('debug').innerHTML = `<p style="color: red;">错误: ${error.message}</p>`;
+            }
+        }
+
+        // 页面加载时测试
+        window.addEventListener('load', testAPI);
+
+        // 每5秒刷新一次
+        setInterval(testAPI, 5000);
+    </script>
+</body>
+</html>

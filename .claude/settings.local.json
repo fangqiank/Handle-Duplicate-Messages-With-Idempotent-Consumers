@@ -2,7 +2,25 @@
   "permissions": {
     "allow": [
       "Bash(dotnet test:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(rm:*)",
+      "Bash(dotnet run:*)",
+      "Bash(curl:*)",
+      "Bash(powershell:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(node:*)",
+      "Bash(Invoke-WebRequest -Uri http://localhost:5272/api/dead-letter-queue -UseBasicParsing)",
+      "Bash(/ps:*)",
+      "Bash(start:*)",
+      "Bash(del:*)",
+      "Bash(rename:*)",
+      "Bash(mv:*)",
+      "Bash(Select-Object:*)"
     ],
     "deny": [],
     "ask": []
